@@ -3,7 +3,7 @@ phase: 'pretrain'
 
 lightning:
     trainer:
-       gpus: '1'
+       gpus: '0'
        max_epochs: 50
        distributed_backend: 'dp'
        gradient_clip_val: 0.25
@@ -24,7 +24,7 @@ lightning:
     logger:
         logger_type: 'WandbLogger'
         save_dir: './data/'
-        project: 'gloria_v2'
+        project: 'gloria_mimic'
 
 model:
     norm: false
@@ -72,5 +72,5 @@ train:
     scheduler: 
         name: 'plateau'
         monitor: 'val_loss'
-        inerval: 'epoch'
+        interval: 'epoch'
         frequency: 1

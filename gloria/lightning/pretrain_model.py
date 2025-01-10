@@ -16,6 +16,10 @@ class PretrainModel(LightningModule):
         self.cfg = cfg
         self.save_hyperparameters(self.cfg)
         self.gloria = builder.build_gloria_model(cfg)
+        print("Initializing with Pretrained GLoRIA")
+        ckpt = torch.load("./pretrained/chexpert_resnet50.ckpt", "cpu")
+        sd = {k.replace("gloria.", ""): v for k, v in ckpt["state_dict"].items()}
+        self.gloria.load_state_dict(sd)
         self.lr = cfg.lightning.trainer.lr
         self.dm = None
 

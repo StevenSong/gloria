@@ -104,14 +104,15 @@ def build_scheduler(cfg, optimizer, dm=None):
     else:
         scheduler = None
 
-    if cfg.lightning.trainer.val_check_interval is not None:
-        cfg.train.scheduler.interval = "step"
-        num_iter = len(dm.train_dataloader().dataset)
-        if type(cfg.lightning.trainer.val_check_interval) == float:
-            frequency = int(num_iter * cfg.lightning.trainer.val_check_interval)
-            cfg.train.scheduler.frequency = frequency
-        else:
-            cfg.train.scheduler.frequency = cfg.lightning.trainer.val_check_interval
+    # if cfg.lightning.trainer.val_check_interval is not None:
+    #     cfg.train.scheduler.interval = "step"
+    #     # BUG: num_iter needs to be divided by batch size...or just ignored
+    #     num_iter = len(dm.train_dataloader().dataset)
+    #     if type(cfg.lightning.trainer.val_check_interval) == float:
+    #         frequency = int(num_iter * cfg.lightning.trainer.val_check_interval)
+    #         cfg.train.scheduler.frequency = frequency
+    #     else:
+    #         cfg.train.scheduler.frequency = cfg.lightning.trainer.val_check_interval
 
     scheduler = {
         "scheduler": scheduler,

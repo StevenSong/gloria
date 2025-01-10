@@ -1,42 +1,61 @@
-import re
 import os
-import numpy as np
-import pandas as pd
-import cv2
-import tqdm
 import pickle
+import re
+
+import cv2
+import numpy as np
 import numpy.random as random
+import pandas as pd
 import torch
 import torch.utils.data as data
-
-from PIL import Image
+import tqdm
 from nltk.tokenize import RegexpTokenizer
+from PIL import Image
 from transformers import AutoTokenizer
-from gloria.constants import *
+
+# from gloria.constants import *
 
 
 class MultimodalPretrainingDataset(data.Dataset):
     def __init__(self, cfg, split="train", transform=None):
-
-        if CHEXPERT_DATA_DIR is None:
-            raise RuntimeError(
-                "CheXpert data path empty\n"
-                + "Make sure to download data from:\n"
-                + "    https://stanfordmlgroup.github.io/competitions/chexpert/"
-                + f" and update CHEXPERT_DATA_DIR in ./gloria/constants.py"
-            )
+        if split == "valid":
+            split = "validate"
 
         self.cfg = cfg
         self.transform = transform
         self.max_word_num = self.cfg.data.text.captions_per_image
 
         # read CheXpert csv file
-        csv_path = os.path.join(CHEXPERT_DATA_DIR, CHEXPERT_MASTER_CSV)
-        self.df = pd.read_csv(csv_path)
-        self.df[CHEXPERT_PATH_COL] = self.df[CHEXPERT_PATH_COL].apply(
-            lambda x: os.path.join(CHEXPERT_DATA_DIR, "/".join(x.split("/")[1:]))
+        meta_df = pd.read_csv("/opt/gpudata/mimic-cxr/mimic-cxr-2.0.0-metadata.csv")
+        split_df = pd.read_csv("/opt/gpudata/mimic-cxr/mimic-cxr-2.0.0-split.csv")
+        section_df = pd.read_csv("/opt/gpudata/mimic-cxr/mimic_cxr_sectioned.csv")
+
+        assert not split_df["dicom_id"].duplicated().any()
+        assert not meta_df["dicom_id"].duplicated().any()
+        assert not section_df["study_id"].duplicated().any()
+
+        self.df = split_df.merge(
+            meta_df,
+            on=["dicom_id", "study_id", "subject_id"],
+        ).merge(
+            section_df,
+            on="study_id",
         )
-        self.df = self.df[self.df[CHEXPERT_VIEW_COL] == "Frontal"]
+        self.df["img_path"] = (
+            "/opt/gpudata/mimic-cxr/files/p"
+            + self.df["subject_id"].astype(str).str[:2]
+            + "/p"
+            + self.df["subject_id"].astype(str)
+            + "/s"
+            + self.df["study_id"].astype(str)
+            + "/"
+            + self.df["dicom_id"].astype(str)
+            + ".jpg"
+        )
+        self.df = self.df[
+            (self.df["ViewPosition"].isin(["AP", "PA"]))
+            & (self.df["impression"].notnull())
+        ].reset_index(drop=True)
 
         # load studies and study to text mapping
         self.filenames, self.path2sent = self.load_text_data(split)
@@ -47,7 +66,7 @@ class MultimodalPretrainingDataset(data.Dataset):
     def load_text_data(self, split):
 
         # get study to captions mapping
-        filepath = os.path.join(CHEXPERT_DATA_DIR, "captions.pickle")
+        filepath = "/opt/gpudata/steven/gloria/data/captions.pickle"
         if not os.path.isfile(filepath):
             print(f"Caption file {filepath} does not exit. Creating captions...")
             path2sent, to_remove = self.create_path_2_sent_mapping(
@@ -62,9 +81,7 @@ class MultimodalPretrainingDataset(data.Dataset):
                 path2sent, to_remove = pickle.load(f)
 
         # filter studies to use for current split
-        filenames = self.df[self.df[CHEXPERT_SPLIT_COL] == split][
-            CHEXPERT_PATH_COL
-        ].tolist()
+        filenames = self.df.loc[self.df["split"] == split, "img_path"].tolist()
         filenames = [f for f in filenames if f not in to_remove]
 
         return filenames, path2sent
@@ -129,12 +146,12 @@ class MultimodalPretrainingDataset(data.Dataset):
 
             # pick impression, findings, last_paragraph
             captions = ""
-            if type(row[CHEXPERT_REPORT_COL]) == str:
-                captions += row[CHEXPERT_REPORT_COL]
+            if type(row["impression"]) == str:
+                captions += row["impression"]
 
             # remove empty reports
             if len(captions) == 0:
-                to_remove.append(row[CHEXPERT_PATH_COL])
+                to_remove.append(row["img_path"])
 
             # use space instead of newline
             captions = captions.replace("\n", " ")
@@ -182,9 +199,9 @@ class MultimodalPretrainingDataset(data.Dataset):
 
             # remove paths without setnences
             if len(study_sent) > 0:
-                path2sent[row[CHEXPERT_PATH_COL]] = study_sent
+                path2sent[row["img_path"]] = study_sent
             else:
-                to_remove.append(row[CHEXPERT_PATH_COL])
+                to_remove.append(row["img_path"])
 
         # get report word/setence statistics
         sent_lens = np.array(sent_lens)

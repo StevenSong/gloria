@@ -123,6 +123,8 @@ if __name__ == "__main__":
     # parse arguments
     parser = get_parser()
     args = parser.parse_args()
+    print("Setting val_check_interval to 1.0")
+    args.val_check_interval = 1.0
     cfg = OmegaConf.load(args.config)
 
     # edit experiment name

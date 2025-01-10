@@ -130,7 +130,7 @@ FONT_MAX = 50
 def drawCaption(convas, vis_size, sents, off1=2, off2=2):
 
     img_txt = Image.fromarray(convas)
-    fnt = ImageFont.truetype("./FreeMono.ttf", 45)
+    fnt = ImageFont.truetype("/usr/share/fonts/truetype/msttcorefonts/times.ttf", 45)
     d = ImageDraw.Draw(img_txt)
     sentence_list = []
     word_index_list = []
