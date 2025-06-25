@@ -4,7 +4,7 @@ import numpy as np
 import copy
 import random
 import pandas as pd
-import segmentation_models_pytorch as smp
+# import segmentation_models_pytorch as smp
 
 from . import builder
 from . import utils
